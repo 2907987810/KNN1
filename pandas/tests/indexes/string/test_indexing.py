@@ -6,6 +6,37 @@ from pandas import Index
 import pandas._testing as tm
 
 
+class TestGetLoc:
+    def test_get_loc(self, any_string_dtype):
+        index = Index(["a", "b", "c"], dtype=any_string_dtype)
+        assert index.get_loc("b") == 1
+
+    def test_get_loc_raises(self, any_string_dtype):
+        index = Index(["a", "b", "c"], dtype=any_string_dtype)
+        with pytest.raises(KeyError, match="d"):
+            index.get_loc("d")
+
+    def test_get_loc_invalid_value(self, any_string_dtype):
+        index = Index(["a", "b", "c"], dtype=any_string_dtype)
+        with pytest.raises(KeyError, match="1"):
+            index.get_loc(1)
+
+    def test_get_loc_non_unique(self, any_string_dtype):
+        index = Index(["a", "b", "a"], dtype=any_string_dtype)
+        result = index.get_loc("a")
+        expected = np.array([True, False, True])
+        tm.assert_numpy_array_equal(result, expected)
+
+    def test_get_loc_non_missing(self, any_string_dtype, nulls_fixture):
+        index = Index(["a", "b", "c"], dtype=any_string_dtype)
+        with pytest.raises(KeyError):
+            index.get_loc(nulls_fixture)
+
+    def test_get_loc_missing(self, any_string_dtype, nulls_fixture):
+        index = Index(["a", "b", nulls_fixture], dtype=any_string_dtype)
+        assert index.get_loc(nulls_fixture) == 2
+
+
 class TestGetIndexer:
     @pytest.mark.parametrize(
         "method,expected",
@@ -41,12 +72,32 @@ class TestGetIndexer:
                 ["a", "b", "c", "d"], method="pad", tolerance=[2, 2, 2, 2]
             )
 
+    @pytest.mark.parametrize("null", [None, np.nan, float("nan"), pd.NA])
+    def test_get_indexer_missing(self, any_string_dtype, null):
+        # NaT and Decimal("NaN") from null_fixture are not supported for string dtype
+        index = Index(["a", "b", null], dtype=any_string_dtype)
+        result = index.get_indexer(["a", null, "c"])
+        expected = np.array([0, 2, -1], dtype=np.intp)
+        tm.assert_numpy_array_equal(result, expected)
+
 
 class TestGetIndexerNonUnique:
-    @pytest.mark.xfail(reason="TODO(infer_string)", strict=False)
-    def test_get_indexer_non_unique_nas(self, any_string_dtype, nulls_fixture):
-        index = Index(["a", "b", None], dtype=any_string_dtype)
-        indexer, missing = index.get_indexer_non_unique([nulls_fixture])
+    @pytest.mark.parametrize("null", [None, np.nan, float("nan"), pd.NA])
+    def test_get_indexer_non_unique_nas(self, request, any_string_dtype, null):
+        if (
+            any_string_dtype == "string"
+            and any_string_dtype.na_value is pd.NA
+            and isinstance(null, float)
+        ):
+            # TODO(infer_string)
+            request.applymarker(
+                pytest.mark.xfail(
+                    reason="NA-variant string dtype does not work with NaN"
+                )
+            )
+
+        index = Index(["a", "b", null], dtype=any_string_dtype)
+        indexer, missing = index.get_indexer_non_unique([null])
 
         expected_indexer = np.array([2], dtype=np.intp)
         expected_missing = np.array([], dtype=np.intp)
@@ -54,8 +105,8 @@ class TestGetIndexerNonUnique:
         tm.assert_numpy_array_equal(missing, expected_missing)
 
         # actually non-unique
-        index = Index(["a", None, "b", None], dtype=any_string_dtype)
-        indexer, missing = index.get_indexer_non_unique([nulls_fixture])
+        index = Index(["a", null, "b", null], dtype=any_string_dtype)
+        indexer, missing = index.get_indexer_non_unique([null])
 
         expected_indexer = np.array([1, 3], dtype=np.intp)
         tm.assert_numpy_array_equal(indexer, expected_indexer)
