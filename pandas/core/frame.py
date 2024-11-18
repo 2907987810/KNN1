@@ -10714,7 +10714,7 @@ class DataFrame(NDFrame, OpsMixin):
         5  K1  A5   B1
         """
         from pandas.core.reshape.concat import concat
-        from pandas.core.reshape.merge import merge
+        from pandas.core.reshape.merge import merge_pick_index
 
         if isinstance(other, Series):
             if other.name is None:
@@ -10723,7 +10723,7 @@ class DataFrame(NDFrame, OpsMixin):
 
         if isinstance(other, DataFrame):
             if how == "cross":
-                return merge(
+                return merge_pick_index(
                     self,
                     other,
                     how=how,
@@ -10731,8 +10731,9 @@ class DataFrame(NDFrame, OpsMixin):
                     suffixes=(lsuffix, rsuffix),
                     sort=sort,
                     validate=validate,
+                    index="left",
                 )
-            return merge(
+            return merge_pick_index(
                 self,
                 other,
                 left_on=on,
@@ -10742,6 +10743,7 @@ class DataFrame(NDFrame, OpsMixin):
                 suffixes=(lsuffix, rsuffix),
                 sort=sort,
                 validate=validate,
+                index=None if on is None else "left",
             )
         else:
             if on is not None:
@@ -10777,7 +10779,7 @@ class DataFrame(NDFrame, OpsMixin):
             joined = frames[0]
 
             for frame in frames[1:]:
-                joined = merge(
+                joined = merge_pick_index(
                     joined,
                     frame,
                     how=how,
