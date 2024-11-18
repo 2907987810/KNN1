@@ -10,6 +10,7 @@ from typing import (
     Any,
     Generic,
     Literal,
+    Union,
     cast,
     final,
     overload,
@@ -969,7 +970,7 @@ class IndexOpsMixin(OpsMixin):
 
     def value_counts(
         self,
-        normalize: bool = False,
+        normalize: Union[bool, str] = False,
         sort: bool = True,
         ascending: bool = False,
         bins=None,
